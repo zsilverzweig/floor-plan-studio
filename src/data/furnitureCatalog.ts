@@ -1,0 +1,335 @@
+import type { FurnitureType } from '../utils/furnitureTypes'
+import { inferFurnitureType } from '../utils/furnitureTypes'
+
+export type FurnitureKind = 'furniture' | 'rug'
+
+export interface FurnitureCatalogEntry {
+  id: string
+  name: string
+  label: string
+  room: string
+  width: number
+  depth: number
+  color: string
+  textureUrl?: string
+  kind: FurnitureKind
+  type: FurnitureType
+  status: string
+  dimensionsNote: string
+}
+
+/** Dimensions sourced from product specs, spreadsheet notes, or standard estimates. */
+const RAW_FURNITURE_CATALOG: Omit<FurnitureCatalogEntry, 'type'>[] = [
+  // Living room — major pieces
+  {
+    id: 'harmony-sofa',
+    name: 'Harmony Modular 121" Sofa',
+    label: 'Harmony Sofa',
+    room: 'Living Room',
+    width: 121 / 12,
+    depth: 43 / 12,
+    color: '#2a2a2e',
+    textureUrl: '/furniture/harmony-charcoal-black-velvet.jpg',
+    kind: 'furniture',
+    status: 'IN TRANSIT',
+    dimensionsNote: '121" W × 43" D (West Elm standard depth)',
+  },
+  {
+    id: 'coffee-table',
+    name: 'Reclaimed Square Coffee Table',
+    label: 'Coffee Table',
+    room: 'Living Room',
+    width: 47 / 12,
+    depth: 47 / 12,
+    color: '#8B6914',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '47" × 47" (from your notes)',
+  },
+  {
+    id: 'desk',
+    name: 'Quillton Solid Wood Desk',
+    label: 'Desk',
+    room: 'Living Room',
+    width: 60 / 12,
+    depth: 30 / 12,
+    color: '#6B5344',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~60" × 30" (estimated from listing)',
+  },
+  {
+    id: 'bar-cart',
+    name: 'Wade Logan Beighley Bar Cart',
+    label: 'Bar Cart',
+    room: 'Living Room',
+    width: 26 / 12,
+    depth: 18 / 12,
+    color: '#94a3b8',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '26" W × 18" D',
+  },
+  {
+    id: 'accent-bookshelf',
+    name: 'Scandinavian Accent Bookshelf',
+    label: 'Bookshelf',
+    room: 'Living Room',
+    width: 16 / 12,
+    depth: 16 / 12,
+    color: '#D4C4A8',
+    kind: 'furniture',
+    status: 'IN TRANSIT',
+    dimensionsNote: '16" × 16" (Litfad)',
+  },
+  {
+    id: 'round-table',
+    name: 'Round Side Table',
+    label: 'Round Table',
+    room: 'Living Room',
+    width: 24 / 12,
+    depth: 24 / 12,
+    color: '#78716c',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~24" diameter (estimated)',
+  },
+  {
+    id: 'side-chair-1',
+    name: 'Moroccan Side Chair',
+    label: 'Side Chair 1',
+    room: 'Living Room',
+    width: 28 / 12,
+    depth: 28 / 12,
+    color: '#B45309',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~28" × 28" (set of 2)',
+  },
+  {
+    id: 'side-chair-2',
+    name: 'Moroccan Side Chair',
+    label: 'Side Chair 2',
+    room: 'Living Room',
+    width: 28 / 12,
+    depth: 28 / 12,
+    color: '#B45309',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~28" × 28" (set of 2)',
+  },
+  {
+    id: 'dining-chair-1',
+    name: 'Dining Chair',
+    label: 'Dining 1',
+    room: 'Living Room',
+    width: 18 / 12,
+    depth: 20 / 12,
+    color: '#57534e',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~18" × 20" (set of 4)',
+  },
+  {
+    id: 'dining-chair-2',
+    name: 'Dining Chair',
+    label: 'Dining 2',
+    room: 'Living Room',
+    width: 18 / 12,
+    depth: 20 / 12,
+    color: '#57534e',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~18" × 20" (set of 4)',
+  },
+  {
+    id: 'dining-chair-3',
+    name: 'Dining Chair',
+    label: 'Dining 3',
+    room: 'Living Room',
+    width: 18 / 12,
+    depth: 20 / 12,
+    color: '#57534e',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~18" × 20" (set of 4)',
+  },
+  {
+    id: 'dining-chair-4',
+    name: 'Dining Chair',
+    label: 'Dining 4',
+    room: 'Living Room',
+    width: 18 / 12,
+    depth: 20 / 12,
+    color: '#57534e',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~18" × 20" (set of 4)',
+  },
+  {
+    id: 'rug-living-accent',
+    name: 'Moroccan Accent Rug',
+    label: 'LR Rug',
+    room: 'Living Room',
+    width: 6,
+    depth: 11,
+    color: '#D6C4A8',
+    kind: 'rug',
+    status: 'ORDERED',
+    dimensionsNote: '6\' × 11\' (from your notes)',
+  },
+  {
+    id: 'rug-cowhide',
+    name: 'Tricolor Cowhide Rug',
+    label: 'Cowhide',
+    room: 'Living Room',
+    width: 6,
+    depth: 7,
+    color: '#C4A882',
+    kind: 'rug',
+    status: 'ORDERED',
+    dimensionsNote: '~6\' × 7\' (typical cowhide)',
+  },
+
+  // Bedroom
+  {
+    id: 'bed',
+    name: 'Rampart Barnwood Bed',
+    label: 'Bed',
+    room: 'Bedroom',
+    width: 60 / 12,
+    depth: 80 / 12,
+    color: '#6B5344',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '60" × 80" queen (estimated)',
+  },
+  {
+    id: 'dresser',
+    name: 'Cayman 9-Drawer Dresser',
+    label: 'Dresser',
+    room: 'Bedroom',
+    width: 62 / 12,
+    depth: 18 / 12,
+    color: '#A8A29E',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '62" W × 18" D (Pottery Barn)',
+  },
+  {
+    id: 'nightstand-1',
+    name: 'Teak Round Nightstand',
+    label: 'Nightstand 1',
+    room: 'Bedroom',
+    width: 24 / 12,
+    depth: 24 / 12,
+    color: '#92764A',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~24" diameter (2 ft tall listing)',
+  },
+  {
+    id: 'nightstand-2',
+    name: 'Teak Round Nightstand',
+    label: 'Nightstand 2',
+    room: 'Bedroom',
+    width: 24 / 12,
+    depth: 24 / 12,
+    color: '#92764A',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~24" diameter (2 ft tall listing)',
+  },
+  {
+    id: 'rug-bedroom',
+    name: 'Luca Sage Green Rug',
+    label: 'Bed Rug',
+    room: 'Bedroom',
+    width: 8,
+    depth: 10,
+    color: '#84A98C',
+    kind: 'rug',
+    status: 'DELIVERED',
+    dimensionsNote: '8\' × 10\' (estimated standard)',
+  },
+  {
+    id: 'accent-chair-bedroom',
+    name: 'Mosso Walnut Armchair',
+    label: 'Accent Chair',
+    room: 'Bedroom',
+    width: 33 / 12,
+    depth: 33 / 12,
+    color: '#78350F',
+    kind: 'furniture',
+    status: 'THINKING ABOUT IT',
+    dimensionsNote: '~33" × 33" (estimated)',
+  },
+
+  // Kitchen
+  {
+    id: 'bar-stool-1',
+    name: 'Bar Stool',
+    label: 'Stool 1',
+    room: 'Kitchen',
+    width: 18 / 12,
+    depth: 18 / 12,
+    color: '#44403c',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~18" seat (estimated)',
+  },
+  {
+    id: 'bar-stool-2',
+    name: 'Bar Stool',
+    label: 'Stool 2',
+    room: 'Kitchen',
+    width: 18 / 12,
+    depth: 18 / 12,
+    color: '#44403c',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~18" seat (estimated)',
+  },
+
+  // Hallway
+  {
+    id: 'coat-rack',
+    name: 'Modern Coat Rack',
+    label: 'Coat Rack',
+    room: 'Hallway',
+    width: 18 / 12,
+    depth: 18 / 12,
+    color: '#292524',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '~18" base (estimated)',
+  },
+  {
+    id: 'runner',
+    name: 'Sinclair Hallway Runner',
+    label: 'Runner',
+    room: 'Hallway',
+    width: 2.5,
+    depth: 10,
+    color: '#D6D3D1',
+    kind: 'rug',
+    status: 'DELIVERED',
+    dimensionsNote: '2.5\' × 10\' (estimated runner)',
+  },
+]
+
+export const FURNITURE_CATALOG: FurnitureCatalogEntry[] = RAW_FURNITURE_CATALOG.map((entry) => ({
+  ...entry,
+  type: inferFurnitureType(entry.id, entry.kind),
+}))
+
+export const CATALOG_BY_ROOM = FURNITURE_CATALOG.reduce<Record<string, FurnitureCatalogEntry[]>>(
+  (acc, item) => {
+    if (!acc[item.room]) acc[item.room] = []
+    acc[item.room].push(item)
+    return acc
+  },
+  {},
+)
+
+export const ROOM_ORDER = ['Living Room', 'Bedroom', 'Kitchen', 'Hallway']
