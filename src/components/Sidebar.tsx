@@ -8,9 +8,8 @@ import {
   type FurnitureCatalogEntry,
 } from '../data/furnitureCatalog'
 import { UNIT_LABELS } from '../utils/scale'
-import { roomIcon } from '../utils/furnitureTypes'
+import { CatalogIcon, RoomIcon, resolveCatalogIconId } from '../icons'
 import { CollapsibleGroup, CollapsibleSection } from './CollapsibleSection'
-import { FurnitureIcon, RoomIcon as RoomIconSvg } from './FurnitureIcon'
 import { HistoryPanel } from './HistoryPanel'
 import { SavedPlansPanel } from './SavedPlansPanel'
 
@@ -142,7 +141,7 @@ export function Sidebar({
       <CollapsibleSection
         title="Inventory"
         badge={FURNITURE_CATALOG.length}
-        icon={<FurnitureIcon type="sofa" />}
+        icon={<CatalogIcon catalogId="harmony-sofa" />}
         defaultOpen
         compact
       >
@@ -165,7 +164,7 @@ export function Sidebar({
             <CollapsibleGroup
               key={room}
               title={room}
-              icon={<RoomIconSvg room={roomIcon(room)} />}
+              icon={<RoomIcon room={room} />}
               badge={items.length}
               defaultOpen={i === 0}
             >
@@ -180,7 +179,7 @@ export function Sidebar({
                       onClick={() => onAddFromCatalog(entry)}
                     >
                       <span className="catalog-icon">
-                        <FurnitureIcon type={entry.type} />
+                        <CatalogIcon catalogId={entry.id} />
                       </span>
                       <span className="catalog-item-text">
                         <span className="catalog-label">{entry.label}</span>
@@ -204,7 +203,7 @@ export function Sidebar({
 
       <CollapsibleSection
         title="Custom"
-        icon={<FurnitureIcon type="table" />}
+        icon={<CatalogIcon catalogId="desk" />}
         defaultOpen={false}
         compact
       >
@@ -252,11 +251,14 @@ export function Sidebar({
         <CollapsibleSection
           title="Selected"
           icon={
-            selectedFurniture.type ? (
-              <FurnitureIcon type={selectedFurniture.type} />
-            ) : (
-              <FurnitureIcon type="storage" />
-            )
+            (() => {
+              const catalogId = resolveCatalogIconId(selectedFurniture)
+              return catalogId ? (
+                <CatalogIcon catalogId={catalogId} />
+              ) : (
+                <CatalogIcon catalogId="desk" />
+              )
+            })()
           }
           defaultOpen
           compact

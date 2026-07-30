@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run icons:validate && tsc -b && vite build",
     "lint": "oxlint",
+    "icons:validate": "npx tsx src/icons/validate-icons.ts",
     "preview": "vite preview",
     "firebase:deploy": "firebase deploy --only firestore:rules,storage",
     "firebase:seed": "node scripts/seed-firestore-admin.mjs",
-    "firebase:hosting": "npm run build && firebase deploy --only hosting"
+    "firebase:hosting": "npm run build && firebase deploy --only hosting",
+    "vercel:deploy": "vercel deploy --prod --yes"
   },
   "dependencies": {
     "firebase": "^12.16.0",

@@ -36,6 +36,7 @@ export interface FurnitureItem {
   id: string
   name: string
   label?: string
+  catalogId?: string
   width: number
   depth: number
   x: number

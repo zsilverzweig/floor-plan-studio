@@ -1,0 +1,5 @@
+export { CatalogIcon, RoomIcon, CatalogIconBySlug, RoomIconBySlug } from './Icon'
+export { catalogIconSlug, roomIconSlug, CATALOG_ID_TO_SLUG, ROOM_NAME_TO_SLUG, resolveCatalogIconId } from './registry'
+export { CATALOG_ICON_DEFINITIONS, CATALOG_ICON_SLUGS } from './catalog'
+export { ROOM_ICON_DEFINITIONS, ROOM_ICON_SLUGS } from './rooms'
+export type { CatalogIconSlug, RoomIconSlug } from './types'

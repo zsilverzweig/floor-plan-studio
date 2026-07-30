@@ -2,7 +2,9 @@
 
 A browser-based layout tool for arranging furniture on a floor plan at real-world scale. Plans and layouts are saved to **Firebase Firestore**; images live in **Firebase Storage**.
 
-**Live app:** https://zs-floor-plan-studio.web.app
+**Live app:**
+- Firebase Hosting: https://zs-floor-plan-studio.web.app
+- Vercel: https://floor-plan-studio.vercel.app
 
 ## Features
 
@@ -26,13 +28,14 @@ Open http://localhost:5173 — changes save to the shared Firestore database.
 
 ## Deploy
 
-Hosting is on Firebase. To deploy manually:
+Both Firebase Hosting and Vercel deploy from `master`/`main` on push.
 
-```bash
-npm run firebase:hosting
-```
+| Platform | URL | Manual deploy |
+|----------|-----|---------------|
+| Firebase | https://zs-floor-plan-studio.web.app | `npm run firebase:hosting` |
+| Vercel | https://floor-plan-studio.vercel.app | `npm run vercel:deploy` |
 
-Pushes to `main`/`master` also deploy via GitHub Actions (requires `FIREBASE_SERVICE_ACCOUNT` secret).
+GitHub Actions deploys Firebase on push. Vercel auto-deploys via its GitHub integration.
 
 Other Firebase commands:
 

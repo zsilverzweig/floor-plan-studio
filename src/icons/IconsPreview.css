@@ -1,0 +1,96 @@
+.icons-preview {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: system-ui, sans-serif;
+}
+
+.icons-preview-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.icons-preview-header p {
+  margin: 0 0 2rem;
+  color: #64748b;
+}
+
+.icons-preview section {
+  margin-bottom: 2.5rem;
+}
+
+.icons-preview h2 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+  color: #334155;
+}
+
+.icons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+.icons-preview-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.icons-preview-cell.compact {
+  padding: 0.5rem;
+}
+
+.icons-preview-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.icons-preview-box.catalog-size {
+  width: 18px;
+  height: 18px;
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.icons-preview-box.catalog-row-size {
+  width: 22px;
+  height: 22px;
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.icons-preview-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+.icons-preview-cell code {
+  font-size: 0.65rem;
+  color: #64748b;
+  text-align: center;
+  word-break: break-all;
+}
+
+.icons-preview-slug {
+  color: #94a3b8;
+}
+
+.icons-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}

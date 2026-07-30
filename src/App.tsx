@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { FloorPlanCanvas } from './components/FloorPlanCanvas'
 import { Sidebar } from './components/Sidebar'
 import { useLayoutState } from './hooks/useLayoutState'
+import { IconsPreview } from './icons/IconsPreview'
 import './App.css'
 
 function App() {
@@ -74,6 +75,10 @@ function App() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [undo, redo])
+
+  if (import.meta.env.DEV && window.location.pathname === '/icons') {
+    return <IconsPreview />
+  }
 
   return (
     <div className="app">
