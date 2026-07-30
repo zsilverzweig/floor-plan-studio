@@ -4,7 +4,7 @@ A browser-based layout tool for arranging furniture on a floor plan at real-worl
 
 **Live app:**
 - Firebase Hosting: https://zs-floor-plan-studio.web.app
-- Vercel: https://floor-plan-studio.vercel.app
+- Vercel: https://floor-plan-studio-ochre.vercel.app
 
 ## Features
 
@@ -33,7 +33,7 @@ Both Firebase Hosting and Vercel deploy from `master`/`main` on push.
 | Platform | URL | Manual deploy |
 |----------|-----|---------------|
 | Firebase | https://zs-floor-plan-studio.web.app | `npm run firebase:hosting` |
-| Vercel | https://floor-plan-studio.vercel.app | `npm run vercel:deploy` |
+| Vercel | https://floor-plan-studio-ochre.vercel.app | `npm run vercel:deploy` |
 
 GitHub Actions deploys Firebase on push. Vercel auto-deploys via its GitHub integration.
 
