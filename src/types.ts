@@ -1,6 +1,8 @@
 import type { FurnitureType } from './utils/furnitureTypes'
+import type { FurnitureFootprintShape } from './utils/furnitureShapes'
 
 export type { FurnitureType } from './utils/furnitureTypes'
+export type { FurnitureFootprintShape } from './utils/furnitureShapes'
 export type LengthUnit = 'ft' | 'in' | 'm' | 'cm'
 
 export interface Point {
@@ -45,9 +47,12 @@ export interface FurnitureItem {
   textureUrl?: string
   color: string
   kind?: FurnitureKind
+  shape?: FurnitureFootprintShape
   type?: FurnitureType
   room?: string
   status?: string
+  groupId?: string
+  groupLabel?: string
 }
 
 export interface FloorPlan {

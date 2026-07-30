@@ -1,8 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { FloorPlanCanvas } from './components/FloorPlanCanvas'
+import { FurnitureContextMenu } from './components/FurnitureContextMenu'
+import { SaveStatusIndicator } from './components/SaveStatusIndicator'
 import { Sidebar } from './components/Sidebar'
 import { useLayoutState } from './hooks/useLayoutState'
 import { IconsPreview } from './icons/IconsPreview'
+import { debugLog } from './utils/debugLog'
+import { getGroupMemberIds } from './utils/furnitureGroups'
 import './App.css'
 
 function App() {
@@ -12,7 +16,7 @@ function App() {
     unit,
     setUnit,
     furniture,
-    selectedId,
+    selectedIds,
     selectedFurniture,
     toolMode,
     calibrationPoints,
@@ -30,7 +34,11 @@ function App() {
     activePlanName,
     dbReady,
     dbError,
+    planLoading,
+    openingPlanId,
+    planLoadError,
     saveStatus,
+    saveError,
     loadFloorPlan,
     openSavedPlan,
     renameActivePlan,
@@ -45,36 +53,76 @@ function App() {
     addAllCatalog,
     updateFurniture,
     deleteFurniture,
-    setSelectedId,
+    deleteSelectedFurniture,
+    deleteSelectedOrItem,
+    moveSelectedLayer,
+    resizeSelectedDimensions,
+    groupSelectedFurniture,
+    ungroupSelectedFurniture,
+    renameGroup,
+    selectFurniture,
+    clearSelection,
+    moveFurnitureGroup,
   } = useLayoutState()
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey
-      if (!mod) return
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    itemId: string
+    itemCount: number
+  } | null>(null)
 
-      const target = e.target as HTMLElement
-      if (
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [contextMenu])
+
+  useEffect(() => {
+    const isEditingField = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false
+      return (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
         target.tagName === 'SELECT' ||
         target.isContentEditable
-      ) {
+      )
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isEditingField(e.target)) return
+
+      const mod = e.metaKey || e.ctrlKey
+
+      if (mod) {
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault()
+          undo()
+        } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+          e.preventDefault()
+          redo()
+        }
         return
       }
 
-      if (e.key === 'z' && !e.shiftKey) {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedIds.length === 0) return
         e.preventDefault()
-        undo()
-      } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-        e.preventDefault()
-        redo()
+        if (selectedIds.length > 1) {
+          deleteSelectedFurniture()
+        } else {
+          deleteFurniture(selectedIds[0])
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo])
+  }, [undo, redo, selectedIds, deleteFurniture, deleteSelectedFurniture])
 
   if (import.meta.env.DEV && window.location.pathname === '/icons') {
     return <IconsPreview />
@@ -89,6 +137,8 @@ function App() {
         toolMode={toolMode}
         calibrationPointsCount={calibrationPoints.length}
         selectedFurniture={selectedFurniture}
+        selectedIds={selectedIds}
+        furniture={furniture}
         furnitureCount={furniture.length}
         scaleDetectionStatus={scaleDetectionStatus}
         scaleDetectionMessage={scaleDetectionMessage}
@@ -101,8 +151,12 @@ function App() {
         onAddFurniture={addFurniture}
         onAddFromCatalog={addFromCatalog}
         onAddAllCatalog={addAllCatalog}
-        onUpdateFurniture={(id, patch) => updateFurniture(id, patch, true)}
+        onUpdateFurniture={(id, patch, coalesce) => updateFurniture(id, patch, coalesce ?? true)}
         onDeleteFurniture={deleteFurniture}
+        onDeleteSelectedFurniture={deleteSelectedFurniture}
+        onGroupSelectedFurniture={groupSelectedFurniture}
+        onUngroupSelectedFurniture={ungroupSelectedFurniture}
+        onRenameGroup={renameGroup}
         historyEntries={historyEntries}
         historyIndex={historyIndex}
         canUndo={canUndo}
@@ -113,8 +167,12 @@ function App() {
         savedPlans={savedPlans}
         activePlanId={activePlanId}
         activePlanName={activePlanName}
-        saveStatus={saveStatus}
-        onOpenSavedPlan={(id) => void openSavedPlan(id)}
+        planLoading={planLoading}
+        openingPlanId={openingPlanId}
+        onOpenSavedPlan={(id) => {
+          debugLog('App', 'onOpenSavedPlan invoked', { id })
+          void openSavedPlan(id)
+        }}
         onRenameActivePlan={renameActivePlan}
         onDeleteSavedPlan={(id) => void deleteSavedPlan(id)}
       />
@@ -124,6 +182,19 @@ function App() {
           <div className="empty-state">
             <div className="empty-icon">📐</div>
             <h2>Loading floor plans from Firestore…</h2>
+          </div>
+        ) : planLoading ? (
+          <div className="empty-state">
+            <div className="empty-icon">📐</div>
+            <h2>Opening floor plan…</h2>
+            <p>Downloading image from Firebase Storage.</p>
+          </div>
+        ) : planLoadError ? (
+          <div className="empty-state">
+            <div className="empty-icon">⚠️</div>
+            <h2>Could not open floor plan</h2>
+            <p>{planLoadError}</p>
+            <p className="hint">Click Unit 14A in the sidebar to retry, or upload a new plan.</p>
           </div>
         ) : dbError ? (
           <div className="empty-state">
@@ -145,19 +216,45 @@ function App() {
             {toolMode === 'calibrate' && scaleDetectionStatus !== 'detecting' && (
               <div className="canvas-banner">Click two points on a known distance to set scale</div>
             )}
+            <SaveStatusIndicator saveStatus={saveStatus} saveError={saveError} />
+            {contextMenu && (
+              <FurnitureContextMenu
+                x={contextMenu.x}
+                y={contextMenu.y}
+                itemCount={contextMenu.itemCount}
+                onSendBackward={() => moveSelectedLayer('back')}
+                onBringForward={() => moveSelectedLayer('forward')}
+                onSendToBack={() => moveSelectedLayer('backmost')}
+                onBringToFront={() => moveSelectedLayer('frontmost')}
+                onChangeWidth={() => resizeSelectedDimensions('width')}
+                onChangeDepth={() => resizeSelectedDimensions('depth')}
+                onChangeAllSizes={() => resizeSelectedDimensions('all')}
+                onDelete={() => deleteSelectedOrItem(contextMenu.itemId)}
+                onClose={() => setContextMenu(null)}
+              />
+            )}
             <FloorPlanCanvas
               floorPlanUrl={floorPlan.imageUrl}
               floorPlanWidth={floorPlan.width}
               floorPlanHeight={floorPlan.height}
               calibration={calibration}
               furniture={calibration ? furniture : []}
-              selectedId={selectedId}
+              selectedIds={selectedIds}
               toolMode={toolMode}
               calibrationPoints={calibrationPoints}
               unit={unit}
-              onSelect={setSelectedId}
-              onFurnitureMove={(id, x, y) => updateFurniture(id, { x, y })}
+              onSelectItem={selectFurniture}
+              onClearSelection={clearSelection}
+              onFurnitureMoveGroup={moveFurnitureGroup}
               onFurnitureTransform={(id, patch) => updateFurniture(id, patch)}
+              onItemContextMenu={(id, position) => {
+                selectFurniture(id, false)
+                setContextMenu({
+                  ...position,
+                  itemId: id,
+                  itemCount: getGroupMemberIds(furniture, id).length,
+                })
+              }}
               onCanvasClick={addCalibrationPoint}
             />
           </div>

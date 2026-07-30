@@ -1,4 +1,5 @@
 import type { FurnitureType } from '../utils/furnitureTypes'
+import type { FurnitureFootprintShape } from '../utils/furnitureShapes'
 import { inferFurnitureType } from '../utils/furnitureTypes'
 
 export type FurnitureKind = 'furniture' | 'rug'
@@ -13,6 +14,7 @@ export interface FurnitureCatalogEntry {
   color: string
   textureUrl?: string
   kind: FurnitureKind
+  shape?: FurnitureFootprintShape
   type: FurnitureType
   status: string
   dimensionsNote: string
@@ -35,6 +37,34 @@ const RAW_FURNITURE_CATALOG: Omit<FurnitureCatalogEntry, 'type'>[] = [
     dimensionsNote: '121" W × 43" D (West Elm standard depth)',
   },
   {
+    id: 'harmony-ottoman',
+    name: 'Harmony Modular Ottoman',
+    label: 'Harmony Ottoman',
+    room: 'Living Room',
+    width: 43.5 / 12,
+    depth: 43.5 / 12,
+    color: '#2a2a2e',
+    textureUrl: '/furniture/harmony-charcoal-black-velvet.jpg',
+    kind: 'furniture',
+    status: 'CONSIDERING',
+    dimensionsNote:
+      '43.5" × 43.5" (West Elm modular ottoman — backless, clips to sofa)',
+  },
+  {
+    id: 'l-couch',
+    name: 'Harmony L Couch',
+    label: 'L Couch',
+    room: 'Living Room',
+    width: 121 / 12,
+    depth: (43 + 43.5) / 12,
+    color: '#2a2a2e',
+    textureUrl: '/furniture/harmony-charcoal-black-velvet.jpg',
+    kind: 'furniture',
+    status: 'CONSIDERING',
+    dimensionsNote:
+      '121" sofa + 43.5" ottoman extension — 121" W × 86.5" D footprint',
+  },
+  {
     id: 'coffee-table',
     name: 'Reclaimed Square Coffee Table',
     label: 'Coffee Table',
@@ -45,6 +75,18 @@ const RAW_FURNITURE_CATALOG: Omit<FurnitureCatalogEntry, 'type'>[] = [
     kind: 'furniture',
     status: 'DELIVERED',
     dimensionsNote: '47" × 47" (from your notes)',
+  },
+  {
+    id: 'tv-console',
+    name: 'TV Console',
+    label: 'TV Console',
+    room: 'Living Room',
+    width: 64 / 12,
+    depth: 16 / 12,
+    color: '#44403c',
+    kind: 'furniture',
+    status: 'DELIVERED',
+    dimensionsNote: '64" W × 16" D',
   },
   {
     id: 'desk',
@@ -91,6 +133,7 @@ const RAW_FURNITURE_CATALOG: Omit<FurnitureCatalogEntry, 'type'>[] = [
     depth: 24 / 12,
     color: '#78716c',
     kind: 'furniture',
+    shape: 'circle',
     status: 'DELIVERED',
     dimensionsNote: '~24" diameter (estimated)',
   },
@@ -225,6 +268,7 @@ const RAW_FURNITURE_CATALOG: Omit<FurnitureCatalogEntry, 'type'>[] = [
     depth: 24 / 12,
     color: '#92764A',
     kind: 'furniture',
+    shape: 'circle',
     status: 'DELIVERED',
     dimensionsNote: '~24" diameter (2 ft tall listing)',
   },
@@ -237,6 +281,7 @@ const RAW_FURNITURE_CATALOG: Omit<FurnitureCatalogEntry, 'type'>[] = [
     depth: 24 / 12,
     color: '#92764A',
     kind: 'furniture',
+    shape: 'circle',
     status: 'DELIVERED',
     dimensionsNote: '~24" diameter (2 ft tall listing)',
   },
@@ -275,6 +320,7 @@ const RAW_FURNITURE_CATALOG: Omit<FurnitureCatalogEntry, 'type'>[] = [
     depth: 18 / 12,
     color: '#44403c',
     kind: 'furniture',
+    shape: 'circle',
     status: 'DELIVERED',
     dimensionsNote: '~18" seat (estimated)',
   },
@@ -287,6 +333,7 @@ const RAW_FURNITURE_CATALOG: Omit<FurnitureCatalogEntry, 'type'>[] = [
     depth: 18 / 12,
     color: '#44403c',
     kind: 'furniture',
+    shape: 'circle',
     status: 'DELIVERED',
     dimensionsNote: '~18" seat (estimated)',
   },
@@ -301,6 +348,7 @@ const RAW_FURNITURE_CATALOG: Omit<FurnitureCatalogEntry, 'type'>[] = [
     depth: 18 / 12,
     color: '#292524',
     kind: 'furniture',
+    shape: 'circle',
     status: 'DELIVERED',
     dimensionsNote: '~18" base (estimated)',
   },

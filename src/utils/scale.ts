@@ -14,6 +14,34 @@ export function toPixels(realValue: number, calibration: ScaleCalibration): numb
   return realValue * pixelsPerUnit(calibration)
 }
 
+export function fromPixels(px: number, calibration: ScaleCalibration): number {
+  const ppu = pixelsPerUnit(calibration)
+  if (ppu <= 0) return 0
+  return px / ppu
+}
+
+function dimensionDecimals(unit: LengthUnit): number {
+  if (unit === 'in') return 1
+  if (unit === 'cm') return 0
+  return 2
+}
+
+/** Round stored dimensions to avoid float noise from fractional catalog values. */
+export function roundDimension(value: number, unit: LengthUnit): number {
+  const decimals = dimensionDecimals(unit)
+  const factor = 10 ** decimals
+  return Math.round(value * factor) / factor
+}
+
+/** Compact numeric string for dimension inputs in the sidebar. */
+export function formatDimensionInput(value: number, unit: LengthUnit): string {
+  const rounded = roundDimension(value, unit)
+  const decimals = dimensionDecimals(unit)
+  const fixed = rounded.toFixed(decimals)
+  if (decimals === 0) return fixed
+  return fixed.replace(/\.?0+$/, '')
+}
+
 export function formatDimension(value: number, unit: LengthUnit): string {
   if (unit === 'ft') {
     const feet = Math.floor(value)

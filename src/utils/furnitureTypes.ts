@@ -21,7 +21,7 @@ export const FURNITURE_TYPE_LABELS: Record<FurnitureType, string> = {
 
 export function inferFurnitureType(id: string, kind: 'furniture' | 'rug'): FurnitureType {
   if (kind === 'rug') return 'rug'
-  if (id.includes('sofa') || id.includes('couch')) return 'sofa'
+  if (id.includes('sofa') || id.includes('couch') || id.includes('ottoman')) return 'sofa'
   if (id.includes('bed')) return 'bed'
   if (id.includes('stool')) return 'stool'
   if (id.includes('chair')) return 'chair'
@@ -32,7 +32,8 @@ export function inferFurnitureType(id: string, kind: 'furniture' | 'rug'): Furni
     id.includes('nightstand') ||
     id.includes('bookshelf') ||
     id.includes('bar-cart') ||
-    id.includes('coat-rack')
+    id.includes('coat-rack') ||
+    id.includes('tv-console')
   ) {
     return 'storage'
   }

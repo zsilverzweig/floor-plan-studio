@@ -1,0 +1,18 @@
+[
+  {
+    "origin": ["*"],
+    "method": ["GET", "HEAD"],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Content-Range",
+      "Content-Encoding",
+      "Content-Disposition",
+      "Range",
+      "ETag",
+      "Cache-Control",
+      "X-Firebase-Storage-XSRF"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

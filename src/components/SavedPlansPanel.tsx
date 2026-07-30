@@ -1,13 +1,21 @@
 import type { SavedFloorPlanSummary } from '../types'
+import { debugLog } from '../utils/debugLog'
 
 interface SavedPlansPanelProps {
   plans: SavedFloorPlanSummary[]
   activePlanId: string | null
   activePlanName: string
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error'
+  planLoading: boolean
+  openingPlanId: string | null
   onOpenPlan: (id: string) => void
   onRenamePlan: (name: string) => void
   onDeletePlan: (id: string) => void
+}
+
+function confirmDeletePlan(plan: SavedFloorPlanSummary): boolean {
+  return window.confirm(
+    `Delete "${plan.name}"?\n\nThis removes only this saved plan (image + layout) from Firestore. Other plans are not affected.`,
+  )
 }
 
 function formatUpdatedAt(timestamp: number): string {
@@ -23,70 +31,89 @@ export function SavedPlansPanel({
   plans,
   activePlanId,
   activePlanName,
-  saveStatus,
+  planLoading,
+  openingPlanId,
   onOpenPlan,
   onRenamePlan,
   onDeletePlan,
 }: SavedPlansPanelProps) {
   if (plans.length === 0) return null
 
+  const activePlan = activePlanId ? plans.find((p) => p.id === activePlanId) : null
+  const switchablePlans = activePlan ? plans.filter((p) => p.id !== activePlanId) : plans
+
+  const handleDelete = (plan: SavedFloorPlanSummary) => {
+    if (!confirmDeletePlan(plan)) return
+    onDeletePlan(plan.id)
+  }
+
   return (
     <div className="saved-plans">
-      {activePlanId && (
-        <label className="field compact">
-          <span>Plan name</span>
-          <input
-            value={activePlanName}
-            onChange={(e) => onRenamePlan(e.target.value)}
-            placeholder="Floor plan name"
-          />
-        </label>
+      {activePlan && (
+        <div className="saved-plan-open">
+          <p className="saved-plan-section-label">Open plan</p>
+          <label className="field compact">
+            <span>Name</span>
+            <input
+              value={activePlanName}
+              onChange={(e) => onRenamePlan(e.target.value)}
+              placeholder="Floor plan name"
+            />
+          </label>
+          <p className="saved-plan-open-meta">
+            {activePlan.furnitureCount} item{activePlan.furnitureCount !== 1 ? 's' : ''} ·{' '}
+            {formatUpdatedAt(activePlan.updatedAt)}
+            {planLoading && activePlan.id === openingPlanId ? ' · opening…' : ''}
+          </p>
+        </div>
       )}
 
-      <div className="save-status-row">
-        <span className={`save-status save-status-${saveStatus}`}>
-          {saveStatus === 'saving'
-            ? 'Saving…'
-            : saveStatus === 'saved'
-              ? 'Saved to Firestore'
-              : saveStatus === 'error'
-                ? 'Save failed'
-                : 'Unsaved changes'}
-        </span>
-      </div>
-
-      <ul className="saved-plans-list">
-        {plans.map((plan) => {
-          const isActive = plan.id === activePlanId
-          return (
-            <li key={plan.id} className={isActive ? 'active' : undefined}>
-              <button
-                type="button"
-                className="saved-plan-item"
-                onClick={() => onOpenPlan(plan.id)}
-                disabled={isActive}
-              >
-                <span className="saved-plan-name">{plan.name}</span>
-                <span className="saved-plan-meta">
-                  {plan.furnitureCount} item{plan.furnitureCount !== 1 ? 's' : ''} ·{' '}
-                  {formatUpdatedAt(plan.updatedAt)}
-                </span>
-              </button>
-              {!isActive && (
+      {switchablePlans.length > 0 && (
+        <>
+          <p className="saved-plan-section-label">
+            {activePlan ? 'Switch plan' : 'Saved plans'} ({switchablePlans.length})
+          </p>
+          <ul className="saved-plans-list">
+            {switchablePlans.map((plan) => (
+              <li key={plan.id}>
+                <button
+                  type="button"
+                  className="saved-plan-item"
+                  onClick={() => {
+                    debugLog('SavedPlansPanel', 'plan clicked', {
+                      id: plan.id,
+                      name: plan.name,
+                      activePlanId,
+                    })
+                    onOpenPlan(plan.id)
+                  }}
+                >
+                  <span className="saved-plan-name">
+                    {plan.name}
+                    {planLoading && plan.id === openingPlanId ? ' …' : ''}
+                  </span>
+                  <span className="saved-plan-meta">
+                    {plan.furnitureCount} item{plan.furnitureCount !== 1 ? 's' : ''} ·{' '}
+                    {formatUpdatedAt(plan.updatedAt)}
+                  </span>
+                </button>
                 <button
                   type="button"
                   className="saved-plan-delete"
-                  onClick={() => onDeletePlan(plan.id)}
-                  title={`Delete ${plan.name}`}
-                  aria-label={`Delete ${plan.name}`}
+                  onClick={() => handleDelete(plan)}
+                  title={`Delete this saved plan (${plan.name})`}
+                  aria-label={`Delete saved plan ${plan.name}`}
                 >
                   ×
                 </button>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+              </li>
+            ))}
+          </ul>
+          <p className="saved-plan-hint">
+            × removes only that plan from Firestore, not your furniture catalog.
+          </p>
+        </>
+      )}
     </div>
   )
 }

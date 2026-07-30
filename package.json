@@ -10,6 +10,7 @@
     "icons:validate": "npx tsx src/icons/validate-icons.ts",
     "preview": "vite preview",
     "firebase:deploy": "firebase deploy --only firestore:rules,storage",
+    "firebase:cors": "gcloud storage buckets update gs://zs-floor-plan-studio.firebasestorage.app --cors-file=storage.cors.json",
     "firebase:seed": "node scripts/seed-firestore-admin.mjs",
     "firebase:hosting": "npm run build && firebase deploy --only hosting",
     "vercel:deploy": "vercel deploy --prod --yes"

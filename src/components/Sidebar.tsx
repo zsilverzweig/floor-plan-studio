@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FurnitureItem, LayoutSnapshot, LengthUnit, ScaleCalibration, SavedFloorPlanSummary } from '../types'
 import type { HistoryEntry } from '../hooks/useHistory'
 import {
@@ -7,7 +7,15 @@ import {
   ROOM_ORDER,
   type FurnitureCatalogEntry,
 } from '../data/furnitureCatalog'
-import { UNIT_LABELS } from '../utils/scale'
+import { formatDimensionInput, roundDimension, UNIT_LABELS } from '../utils/scale'
+import {
+  dimensionInputHint,
+  dimensionPlaceholder,
+  parseDimensionExpression,
+} from '../utils/parseDimension'
+import { sharedGroupInfo } from '../utils/furnitureGroups'
+import { FURNITURE_COLOR_SWATCHES } from '../utils/furnitureAppearance'
+import { resolveFootprintShape, type FurnitureFootprintShape } from '../utils/furnitureShapes'
 import { CatalogIcon, RoomIcon, resolveCatalogIconId } from '../icons'
 import { CollapsibleGroup, CollapsibleSection } from './CollapsibleSection'
 import { HistoryPanel } from './HistoryPanel'
@@ -20,6 +28,8 @@ interface SidebarProps {
   toolMode: 'select' | 'calibrate'
   calibrationPointsCount: number
   selectedFurniture: FurnitureItem | null
+  selectedIds: string[]
+  furniture: FurnitureItem[]
   furnitureCount: number
   scaleDetectionStatus: 'idle' | 'detecting' | 'found' | 'failed'
   scaleDetectionMessage: string | null
@@ -33,13 +43,18 @@ interface SidebarProps {
     name: string
     width: number
     depth: number
+    shape?: FurnitureFootprintShape
     textureUrl?: string
     color?: string
   }) => void
   onAddFromCatalog: (entry: FurnitureCatalogEntry) => void
   onAddAllCatalog: () => void
-  onUpdateFurniture: (id: string, patch: Partial<FurnitureItem>) => void
+  onUpdateFurniture: (id: string, patch: Partial<FurnitureItem>, coalesce?: boolean) => void
   onDeleteFurniture: (id: string) => void
+  onDeleteSelectedFurniture: () => void
+  onGroupSelectedFurniture: (label?: string) => void
+  onUngroupSelectedFurniture: () => void
+  onRenameGroup: (groupId: string, label: string) => void
   historyEntries: HistoryEntry<LayoutSnapshot>[]
   historyIndex: number
   canUndo: boolean
@@ -50,7 +65,8 @@ interface SidebarProps {
   savedPlans: SavedFloorPlanSummary[]
   activePlanId: string | null
   activePlanName: string
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error'
+  planLoading: boolean
+  openingPlanId: string | null
   onOpenSavedPlan: (id: string) => void
   onRenameActivePlan: (name: string) => void
   onDeleteSavedPlan: (id: string) => void
@@ -63,6 +79,316 @@ function statusGlyph(status: string): string {
   return '?'
 }
 
+function DimensionField({
+  label,
+  unit,
+  value,
+  onChange,
+  onCommit,
+}: {
+  label: string
+  unit: LengthUnit
+  value: string
+  onChange: (value: string) => void
+  onCommit: () => void
+}) {
+  return (
+    <label className="field compact dimension-field">
+      <span>
+        {label} ({unit})
+      </span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        placeholder={dimensionPlaceholder(unit)}
+        spellCheck={false}
+      />
+    </label>
+  )
+}
+
+function SelectedGroupPanel({
+  furniture,
+  selectedIds,
+  onGroup,
+  onUngroup,
+  onRenameGroup,
+  onDelete,
+}: {
+  furniture: FurnitureItem[]
+  selectedIds: string[]
+  onGroup: (label?: string) => void
+  onUngroup: () => void
+  onRenameGroup: (groupId: string, label: string) => void
+  onDelete: () => void
+}) {
+  const groupInfo = sharedGroupInfo(furniture, selectedIds)
+  const [groupLabelText, setGroupLabelText] = useState(groupInfo?.groupLabel ?? '')
+
+  useEffect(() => {
+    setGroupLabelText(groupInfo?.groupLabel ?? '')
+  }, [groupInfo?.groupId, groupInfo?.groupLabel])
+
+  const selectedItems = selectedIds
+    .map((id) => furniture.find((item) => item.id === id))
+    .filter((item): item is FurnitureItem => !!item)
+
+  const commitRename = () => {
+    if (!groupInfo) return
+    const trimmed = groupLabelText.trim()
+    if (trimmed && trimmed !== groupInfo.groupLabel) {
+      onRenameGroup(groupInfo.groupId, trimmed)
+    }
+  }
+
+  return (
+    <CollapsibleSection
+      title="Selected"
+      badge={selectedIds.length}
+      icon={<CatalogIcon catalogId="harmony-sofa" />}
+      defaultOpen
+      compact
+    >
+      {groupInfo ? (
+        <>
+          <p className="selected-name">{groupInfo.groupLabel}</p>
+          <p className="hint tight">
+            {groupInfo.memberCount}-piece group · click any member to select all · drag to move
+            together
+          </p>
+          <label className="field compact">
+            <span>Group name</span>
+            <input
+              value={groupLabelText}
+              onChange={(e) => setGroupLabelText(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              placeholder="e.g. L Couch"
+            />
+          </label>
+          <button type="button" className="btn ghost compact-btn" onClick={onUngroup}>
+            Ungroup
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="selected-name">{selectedIds.length} items selected</p>
+          <p className="hint tight">
+            Shift-click to add or remove items. Drag any selected item to move them together.
+          </p>
+          <label className="field compact">
+            <span>Group name</span>
+            <input
+              value={groupLabelText}
+              onChange={(e) => setGroupLabelText(e.target.value)}
+              placeholder="e.g. L Couch"
+            />
+          </label>
+          <button
+            type="button"
+            className="btn primary compact-btn"
+            disabled={selectedIds.length < 2}
+            onClick={() => onGroup(groupLabelText)}
+          >
+            Group {selectedIds.length} items
+          </button>
+        </>
+      )}
+
+      <ul className="group-member-list">
+        {selectedItems.map((item) => (
+          <li key={item.id}>{item.label ?? item.name}</li>
+        ))}
+      </ul>
+
+      <button type="button" className="btn danger compact-btn" onClick={onDelete}>
+        Delete {selectedIds.length} items
+      </button>
+    </CollapsibleSection>
+  )
+}
+
+function SelectedFurnitureEditor({
+  item,
+  unit,
+  onUpdate,
+  onDelete,
+}: {
+  item: FurnitureItem
+  unit: LengthUnit
+  onUpdate: (patch: Partial<FurnitureItem>, coalesce?: boolean) => void
+  onDelete: () => void
+}) {
+  const isCircle = resolveFootprintShape(item) === 'circle'
+  const [widthText, setWidthText] = useState(formatDimensionInput(item.width, unit))
+  const [depthText, setDepthText] = useState(formatDimensionInput(item.depth, unit))
+  const [rotationText, setRotationText] = useState(String(Math.round(item.rotation)))
+
+  useEffect(() => {
+    setWidthText(formatDimensionInput(item.width, unit))
+    setDepthText(formatDimensionInput(item.depth, unit))
+    setRotationText(String(Math.round(item.rotation)))
+  }, [item.id, item.width, item.depth, item.rotation, unit])
+
+  const commitWidth = () => {
+    const parsed = parseDimensionExpression(widthText)
+    if (parsed !== null && parsed > 0) {
+      const width = roundDimension(parsed, unit)
+      onUpdate(isCircle ? { width, depth: width } : { width }, false)
+      setWidthText(formatDimensionInput(width, unit))
+    } else {
+      setWidthText(formatDimensionInput(item.width, unit))
+    }
+  }
+
+  const commitDepth = () => {
+    const parsed = parseDimensionExpression(depthText)
+    if (parsed !== null && parsed > 0) {
+      const depth = roundDimension(parsed, unit)
+      onUpdate({ depth }, false)
+      setDepthText(formatDimensionInput(depth, unit))
+    } else {
+      setDepthText(formatDimensionInput(item.depth, unit))
+    }
+  }
+
+  const commitRotation = () => {
+    const rotation = parseFloat(rotationText)
+    if (Number.isFinite(rotation)) {
+      const rounded = Math.round(rotation)
+      onUpdate({ rotation: rounded }, false)
+      setRotationText(String(rounded))
+    } else {
+      setRotationText(String(Math.round(item.rotation)))
+    }
+  }
+
+  const catalogId = resolveCatalogIconId(item)
+
+  const handleTextureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (item.textureUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(item.textureUrl)
+    }
+    onUpdate({ textureUrl: URL.createObjectURL(file) }, false)
+    e.target.value = ''
+  }
+
+  const clearTexture = () => {
+    if (item.textureUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(item.textureUrl)
+    }
+    onUpdate({ textureUrl: undefined }, false)
+  }
+
+  return (
+    <CollapsibleSection
+      title="Selected"
+      icon={catalogId ? <CatalogIcon catalogId={catalogId} /> : <CatalogIcon catalogId="desk" />}
+      defaultOpen
+      compact
+    >
+      <p className="selected-name">{item.label ?? item.name}</p>
+
+      <p className="saved-plan-section-label">Size</p>
+      <p className="hint tight">{dimensionInputHint(unit)}</p>
+      {isCircle ? (
+        <DimensionField
+          label="Diameter"
+          unit={unit}
+          value={widthText}
+          onChange={setWidthText}
+          onCommit={commitWidth}
+        />
+      ) : (
+        <div className="field-row tight">
+          <DimensionField
+            label="Width"
+            unit={unit}
+            value={widthText}
+            onChange={setWidthText}
+            onCommit={commitWidth}
+          />
+          <DimensionField
+            label="Depth"
+            unit={unit}
+            value={depthText}
+            onChange={setDepthText}
+            onCommit={commitDepth}
+          />
+        </div>
+      )}
+
+      <p className="hint tight">Or drag the corner handles on the canvas.</p>
+
+      <p className="saved-plan-section-label">Shape & rotation</p>
+      <label className="field compact">
+        <span>Shape</span>
+        <select
+          value={resolveFootprintShape(item)}
+          onChange={(e) => {
+            const shape = e.target.value as FurnitureFootprintShape
+            if (shape === 'circle') {
+              const diameter = Math.max(item.width, item.depth)
+              onUpdate({ shape, width: diameter, depth: diameter }, false)
+            } else {
+              onUpdate({ shape }, false)
+            }
+          }}
+        >
+          <option value="rect">Rectangle</option>
+          <option value="circle">Round</option>
+        </select>
+      </label>
+      <label className="field compact">
+        <span>Rotation (°)</span>
+        <input
+          type="number"
+          step="15"
+          value={rotationText}
+          onChange={(e) => setRotationText(e.target.value)}
+          onBlur={commitRotation}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        />
+      </label>
+
+      <p className="saved-plan-section-label">Appearance</p>
+      <div className="color-swatches" role="listbox" aria-label="Fill color">
+        {FURNITURE_COLOR_SWATCHES.map((color) => (
+          <button
+            key={color}
+            type="button"
+            role="option"
+            aria-selected={item.color === color}
+            className={`color-swatch${item.color === color ? ' selected' : ''}`}
+            style={{ backgroundColor: color }}
+            title={color}
+            onClick={() => onUpdate({ color }, false)}
+          />
+        ))}
+      </div>
+      <label className="file-button secondary compact-btn">
+        {item.textureUrl ? 'Change texture' : 'Add texture'}
+        <input type="file" accept="image/*" onChange={handleTextureUpload} hidden />
+      </label>
+      {item.textureUrl && (
+        <button type="button" className="btn ghost compact-btn" onClick={clearTexture}>
+          Remove texture
+        </button>
+      )}
+
+      <button type="button" className="btn danger compact-btn" onClick={onDelete}>
+        Delete
+      </button>
+    </CollapsibleSection>
+  )
+}
+
 export function Sidebar({
   floorPlanLoaded,
   calibration,
@@ -70,6 +396,8 @@ export function Sidebar({
   toolMode,
   calibrationPointsCount,
   selectedFurniture,
+  selectedIds,
+  furniture,
   furnitureCount,
   scaleDetectionStatus,
   scaleDetectionMessage,
@@ -84,6 +412,10 @@ export function Sidebar({
   onAddAllCatalog,
   onUpdateFurniture,
   onDeleteFurniture,
+  onDeleteSelectedFurniture,
+  onGroupSelectedFurniture,
+  onUngroupSelectedFurniture,
+  onRenameGroup,
   historyEntries,
   historyIndex,
   canUndo,
@@ -94,15 +426,17 @@ export function Sidebar({
   savedPlans,
   activePlanId,
   activePlanName,
-  saveStatus,
+  planLoading,
+  openingPlanId,
   onOpenSavedPlan,
   onRenameActivePlan,
   onDeleteSavedPlan,
 }: SidebarProps) {
   const [calibrationDistance, setCalibrationDistance] = useState('10')
-  const [furnitureName, setFurnitureName] = useState('Sofa')
-  const [furnitureWidth, setFurnitureWidth] = useState('7')
-  const [furnitureDepth, setFurnitureDepth] = useState('3')
+  const [furnitureName, setFurnitureName] = useState('')
+  const [furnitureWidth, setFurnitureWidth] = useState('')
+  const [furnitureDepth, setFurnitureDepth] = useState('')
+  const [furnitureShape, setFurnitureShape] = useState<FurnitureFootprintShape>('rect')
   const [furnitureTexture, setFurnitureTexture] = useState<string | undefined>()
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,16 +453,23 @@ export function Sidebar({
 
   const handleAddFurniture = (e: React.FormEvent) => {
     e.preventDefault()
-    const width = parseFloat(furnitureWidth)
-    const depth = parseFloat(furnitureDepth)
-    if (!furnitureName.trim() || width <= 0 || depth <= 0) return
+    const width = parseDimensionExpression(furnitureWidth)
+    const depth =
+      furnitureShape === 'circle' ? width : parseDimensionExpression(furnitureDepth)
+    if (!furnitureName.trim() || width === null || width <= 0 || depth === null || depth <= 0) {
+      return
+    }
     onAddFurniture({
       name: furnitureName.trim(),
       width,
       depth,
+      shape: furnitureShape,
       textureUrl: furnitureTexture,
       color: '#6366f1',
     })
+    setFurnitureName('')
+    setFurnitureWidth('')
+    setFurnitureDepth('')
   }
 
   return (
@@ -138,6 +479,26 @@ export function Sidebar({
       </header>
 
       <div className="sidebar-main">
+      {selectedFurniture && selectedIds.length === 1 && (
+        <SelectedFurnitureEditor
+          item={selectedFurniture}
+          unit={unit}
+          onUpdate={(patch, coalesce) => onUpdateFurniture(selectedFurniture.id, patch, coalesce)}
+          onDelete={() => onDeleteFurniture(selectedFurniture.id)}
+        />
+      )}
+
+      {selectedIds.length > 1 && (
+        <SelectedGroupPanel
+          furniture={furniture}
+          selectedIds={selectedIds}
+          onGroup={onGroupSelectedFurniture}
+          onUngroup={onUngroupSelectedFurniture}
+          onRenameGroup={onRenameGroup}
+          onDelete={onDeleteSelectedFurniture}
+        />
+      )}
+
       <CollapsibleSection
         title="Inventory"
         badge={FURNITURE_CATALOG.length}
@@ -156,6 +517,65 @@ export function Sidebar({
         {furnitureCount > 0 && (
           <p className="hint tight">{furnitureCount} on canvas</p>
         )}
+
+        <CollapsibleGroup title="Add custom piece" icon={<CatalogIcon catalogId="desk" />} defaultOpen>
+          <form onSubmit={handleAddFurniture} className="furniture-form compact">
+            <label className="field compact">
+              <span>Name</span>
+              <input
+                value={furnitureName}
+                onChange={(e) => setFurnitureName(e.target.value)}
+                placeholder="e.g. TV Console"
+              />
+            </label>
+            <label className="field compact">
+              <span>Shape</span>
+              <select
+                value={furnitureShape}
+                onChange={(e) => setFurnitureShape(e.target.value as FurnitureFootprintShape)}
+              >
+                <option value="rect">Rectangle</option>
+                <option value="circle">Round</option>
+              </select>
+            </label>
+            {furnitureShape === 'circle' ? (
+              <DimensionField
+                label="Diameter"
+                unit={unit}
+                value={furnitureWidth}
+                onChange={setFurnitureWidth}
+                onCommit={() => {}}
+              />
+            ) : (
+              <>
+                <p className="hint tight">{dimensionInputHint(unit)}</p>
+                <div className="field-row tight">
+                  <DimensionField
+                    label="Width"
+                    unit={unit}
+                    value={furnitureWidth}
+                    onChange={setFurnitureWidth}
+                    onCommit={() => {}}
+                  />
+                  <DimensionField
+                    label="Depth"
+                    unit={unit}
+                    value={furnitureDepth}
+                    onChange={setFurnitureDepth}
+                    onCommit={() => {}}
+                  />
+                </div>
+              </>
+            )}
+            <label className="file-button secondary compact-btn">
+              {furnitureTexture ? 'Change texture' : 'Texture (optional)'}
+              <input type="file" accept="image/*" onChange={handleTextureUpload} hidden />
+            </label>
+            <button type="submit" className="btn primary compact-btn" disabled={!calibration}>
+              Add to canvas
+            </button>
+          </form>
+        </CollapsibleGroup>
 
         {ROOM_ORDER.map((room, i) => {
           const items = CATALOG_BY_ROOM[room]
@@ -201,122 +621,6 @@ export function Sidebar({
         })}
       </CollapsibleSection>
 
-      <CollapsibleSection
-        title="Custom"
-        icon={<CatalogIcon catalogId="desk" />}
-        defaultOpen={false}
-        compact
-      >
-        <form onSubmit={handleAddFurniture} className="furniture-form compact">
-          <label className="field compact">
-            <input
-              value={furnitureName}
-              onChange={(e) => setFurnitureName(e.target.value)}
-              placeholder="Name"
-            />
-          </label>
-          <div className="field-row tight">
-            <label className="field compact">
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={furnitureWidth}
-                onChange={(e) => setFurnitureWidth(e.target.value)}
-                placeholder={`W (${unit})`}
-              />
-            </label>
-            <label className="field compact">
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={furnitureDepth}
-                onChange={(e) => setFurnitureDepth(e.target.value)}
-                placeholder={`D (${unit})`}
-              />
-            </label>
-          </div>
-          <label className="file-button secondary compact-btn">
-            {furnitureTexture ? 'Change texture' : 'Texture'}
-            <input type="file" accept="image/*" onChange={handleTextureUpload} hidden />
-          </label>
-          <button type="submit" className="btn primary compact-btn" disabled={!calibration}>
-            Add
-          </button>
-        </form>
-      </CollapsibleSection>
-
-      {selectedFurniture && (
-        <CollapsibleSection
-          title="Selected"
-          icon={
-            (() => {
-              const catalogId = resolveCatalogIconId(selectedFurniture)
-              return catalogId ? (
-                <CatalogIcon catalogId={catalogId} />
-              ) : (
-                <CatalogIcon catalogId="desk" />
-              )
-            })()
-          }
-          defaultOpen
-          compact
-        >
-          <p className="selected-name">{selectedFurniture.label ?? selectedFurniture.name}</p>
-          <label className="field compact">
-            <input
-              type="number"
-              step="15"
-              value={selectedFurniture.rotation}
-              onChange={(e) =>
-                onUpdateFurniture(selectedFurniture.id, {
-                  rotation: parseFloat(e.target.value) || 0,
-                })
-              }
-              placeholder="Rotation °"
-            />
-          </label>
-          <div className="field-row tight">
-            <label className="field compact">
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={selectedFurniture.width}
-                onChange={(e) =>
-                  onUpdateFurniture(selectedFurniture.id, {
-                    width: parseFloat(e.target.value) || 0,
-                  })
-                }
-                placeholder={`W (${unit})`}
-              />
-            </label>
-            <label className="field compact">
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={selectedFurniture.depth}
-                onChange={(e) =>
-                  onUpdateFurniture(selectedFurniture.id, {
-                    depth: parseFloat(e.target.value) || 0,
-                  })
-                }
-                placeholder={`D (${unit})`}
-              />
-            </label>
-          </div>
-          <button
-            type="button"
-            className="btn danger compact-btn"
-            onClick={() => onDeleteFurniture(selectedFurniture.id)}
-          >
-            Delete
-          </button>
-        </CollapsibleSection>
-      )}
-
       {floorPlanLoaded && (
         <CollapsibleSection title="History" defaultOpen={false} compact>
           <HistoryPanel
@@ -353,7 +657,8 @@ export function Sidebar({
             plans={savedPlans}
             activePlanId={activePlanId}
             activePlanName={activePlanName}
-            saveStatus={saveStatus}
+            planLoading={planLoading}
+            openingPlanId={openingPlanId}
             onOpenPlan={onOpenSavedPlan}
             onRenamePlan={onRenameActivePlan}
             onDeletePlan={onDeleteSavedPlan}
@@ -414,15 +719,17 @@ export function Sidebar({
             <div className="calibration-help compact">
               <p>Click 2 points ({calibrationPointsCount}/2)</p>
               {calibrationPointsCount === 2 && (
-                <label className="field compact">
+                <label className="field compact dimension-field">
+                  <span>Distance ({unit})</span>
                   <input
-                    type="number"
-                    min="0.01"
-                    step="0.1"
+                    type="text"
+                    inputMode="decimal"
                     value={calibrationDistance}
                     onChange={(e) => setCalibrationDistance(e.target.value)}
-                    placeholder={`Distance (${unit})`}
+                    placeholder={dimensionPlaceholder(unit)}
+                    spellCheck={false}
                   />
+                  <span className="field-hint">{dimensionInputHint(unit)}</span>
                 </label>
               )}
               <div className="btn-row tight">
@@ -430,7 +737,12 @@ export function Sidebar({
                   <button
                     type="button"
                     className="btn primary compact-btn"
-                    onClick={() => onFinishCalibration(parseFloat(calibrationDistance))}
+                    onClick={() => {
+                      const distance = parseDimensionExpression(calibrationDistance)
+                      if (distance !== null && distance > 0) {
+                        onFinishCalibration(distance)
+                      }
+                    }}
                   >
                     Apply
                   </button>

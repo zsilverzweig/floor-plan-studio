@@ -7,7 +7,10 @@ import type { CatalogIconSlug, RoomIconSlug } from './types'
  */
 export const CATALOG_ID_TO_SLUG: Record<string, CatalogIconSlug> = {
   'harmony-sofa': 'sectional-sofa',
+  'harmony-ottoman': 'sectional-sofa',
+  'l-couch': 'sectional-sofa',
   'coffee-table': 'coffee-table',
+  'tv-console': 'dresser-wide',
   desk: 'desk',
   'bar-cart': 'bar-cart',
   'accent-bookshelf': 'bookshelf',

@@ -1,6 +1,6 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
+import { getStorage, type FirebaseStorage } from 'firebase/storage'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -36,6 +36,15 @@ export function getDb() {
   return getFirestore(getApp())
 }
 
-export function getStorageBucket() {
-  return getStorage(getApp())
+let storage: FirebaseStorage | null = null
+
+export function getStorageBucket(): FirebaseStorage {
+  if (!storage) {
+    storage = getStorage(getApp())
+    // Defaults are minutes long, which turns a CORS or network failure into a
+    // silent hang while the SDK retries. Fail fast so the UI can show an error.
+    storage.maxOperationRetryTime = 15_000
+    storage.maxUploadRetryTime = 30_000
+  }
+  return storage
 }
